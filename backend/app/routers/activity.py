@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+from ..database import get_session
+from ..models import Post, User
+from ..dependencies import get_current_user
 
 router = APIRouter()
 
-@router.post("/user/{user_id}/checkin")
-async def daily_checkin(user_id: int):
-    # TODO: Record daily activity in DB (opened = True)
-    return JSONResponse(content={"msg": f"User {user_id} checked in"}, status_code=status.HTTP_200_OK)
-
-@router.get("/user/{user_id}/activity")
-async def get_activity(user_id: int):
-    # TODO: Retrieve activity summary from DB
-    return {"user_id": user_id, "activity": "placeholder"}
+@router.get("/sync-status")
+async def get_sync_status(
+    current_user: User = Depends(get_current_user), 
+    session: AsyncSession = Depends(get_session)
+):
+    statement = select(Post).where(Post.user_id == current_user.id).order_by(Post.posted_at.desc()).limit(10)
+    result = await session.execute(statement)
+    posts = result.scalars().all()
+    return posts
