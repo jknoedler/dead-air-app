@@ -2,6 +2,10 @@
 fastapi
 uvicorn[standard]
 sqlmodel
+asyncpg
 authlib
 python-jose[cryptography]
+passlib[bcrypt]
 apscheduler
+httpx
+python-multipart
