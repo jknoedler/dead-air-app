@@ -2,11 +2,13 @@
 
 import httpx
 from .base import SocialPlatformService
+from .scrapers.tiktok_scraper import TikTokScraper
 
 class TikTokService(SocialPlatformService):
     def __init__(self, client_id: str, client_secret: str):
         super().__init__("tiktok", client_id, client_secret)
         self.api_base = "https://open-api.tiktok.com/"
+        self.scraper = TikTokScraper()
 
     async def get_auth_url(self, redirect_uri: str) -> str:
         # Authlib handles this, but here's the manual way if needed
@@ -44,13 +46,21 @@ class TikTokService(SocialPlatformService):
 
     async def download_video_no_watermark(self, video_data: dict) -> str:
         """
-        Placeholder for watermark removal logic.
-        Usually involves fetching the 'play_addr' from a different API or using a scraper.
+        Fetches the clean video URL and downloads it to a temporary location.
         """
+        video_url = video_data.get("share_url") # The public link to the video
+        if not video_url:
+            return None
+
+        clean_url = await self.scraper.get_no_watermark_url(video_url)
+        if not clean_url:
+            return None
+
         video_id = video_data.get("id")
-        # In a real app, you'd use a service like SaveFrom or a custom scraper/API
-        # For now, we return a mock path
-        return f"/tmp/tiktok_{video_id}_clean.mp4"
+        dest_path = f"/tmp/tiktok_{video_id}_clean.mp4"
+        
+        success = await self.scraper.download_video(clean_url, dest_path)
+        return dest_path if success else None
 
     async def upload_video(self, video_path: str, caption: str, access_token: str) -> str:
         # TikTok doesn't typically allow direct file uploads via the open-api for standard users
