@@ -1,8 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload, CheckCircle, Activity, Globe, Sparkles, RefreshCw, TikTok, Youtube, Instagram, Facebook, MessageSquare } from 'lucide-react'
+
+const API_BASE = 'http://localhost:8000/api'
 
 function App() {
   const [syncing, setSyncing] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [syncHistory, setSyncHistory] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [sugRes, syncRes] = await Promise.all([
+          fetch(`${API_BASE}/suggestions/daily`),
+          fetch(`${API_BASE}/activity/sync-status`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          })
+        ])
+        
+        if (sugRes.ok) setSuggestions(await sugRes.json())
+        if (syncRes.ok) setSyncHistory(await syncRes.json())
+      } catch (err) {
+        console.error("Failed to fetch dashboard data", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   const handleManualSync = () => {
     setSyncing(true)
@@ -92,11 +118,9 @@ function App() {
               <h2 className="text-2xl font-bold tracking-tight">Daily Suggestions</h2>
             </div>
             <div className="grid gap-4">
-              {[
-                { title: "The 'Behind the Scenes' Reveal", category: "Vlog", description: "Show exactly how you made your last piece of content. People love seeing the messy process." },
-                { title: "Common Industry Myth Buster", category: "Educational", description: "Pick one common misconception in your niche and explain why it's wrong in under 30 seconds." },
-                { title: "Day in the Life (ASMR)", category: "Aesthetic", description: "Fast cuts of your morning routine with only ambient sounds and text overlays." }
-              ].map((s, i) => (
+              {loading ? (
+                <div className="animate-pulse text-zinc-600">Loading your creative hooks...</div>
+              ) : suggestions.map((s, i) => (
                 <div key={i} className="group bg-zinc-900/50 border border-white/5 rounded-3xl p-6 hover:bg-zinc-800/50 transition-all cursor-pointer">
                   <div className="flex items-center justify-between mb-3">
                     <span className="px-3 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{s.category}</span>
@@ -128,21 +152,19 @@ function App() {
             <div className="space-y-8">
               <div className="relative">
                 <div className="absolute left-4 top-8 bottom-0 w-px bg-zinc-800" />
-                {[
-                  { date: 'Today, 14:20', msg: 'Synced to 3 platforms', icon: <CheckCircle className="w-3 h-3 text-green-400" /> },
-                  { date: 'Yesterday, 09:15', msg: 'Synced to 4 platforms', icon: <CheckCircle className="w-3 h-3 text-green-400" /> },
-                  { date: 'Dec 16, 18:02', msg: 'TikTok original uploaded', icon: <CheckCircle className="w-3 h-3 text-zinc-400" /> },
-                ].map((item, i) => (
+                {syncHistory.length > 0 ? syncHistory.map((item, i) => (
                   <div key={i} className="flex gap-4 mb-8 last:mb-0 relative">
                     <div className="w-8 h-8 rounded-full bg-zinc-900 border border-white/5 flex items-center justify-center shrink-0 z-10">
-                      {item.icon}
+                      <CheckCircle className="w-3 h-3 text-green-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">{item.msg}</p>
-                      <p className="text-[11px] text-zinc-500">{item.date}</p>
+                      <p className="text-sm font-semibold">Synced to {item.platform}</p>
+                      <p className="text-[11px] text-zinc-500">{new Date(item.posted_at).toLocaleString()}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-sm text-zinc-500">No sync history yet.</p>
+                )}
               </div>
             </div>
 
